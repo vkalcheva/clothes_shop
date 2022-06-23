@@ -1,5 +1,6 @@
 import enum
 
+import phonenumbers
 from decouple import config
 from flask import Flask, request
 from flask_migrate import Migrate
@@ -7,6 +8,7 @@ from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from password_strength import PasswordPolicy
 from marshmallow import Schema, fields, ValidationError, validate
+from phonenumbers.phonenumberutil import NumberParseException
 from sqlalchemy import func
 
 
@@ -40,6 +42,14 @@ def validate_password(value):
         raise ValidationError(f"Not a valid password")
 
 
+def validate_phone(phone):
+    try:
+        phone_number = phonenumbers.parse(phone, None)
+        valid = phonenumbers.is_valid_number(phone_number)
+    except NumberParseException:
+        raise ValidationError('Not valid number!')
+
+
 class BaseUserSchema(Schema):
     email = fields.Email(required=True)
     full_name = fields.Str(required=True, validate=validate.And(validate_name, validate.Length(min=3, max=255)))
@@ -47,6 +57,7 @@ class BaseUserSchema(Schema):
 
 class UserSignInSchema(BaseUserSchema):
     password = fields.Str(required=True, validate=validate.And(validate_password, validate.Length(min=8, max=20)))
+    phone = fields.Str(validate=validate_phone)
 
 
 class User(db.Model):
